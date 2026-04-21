@@ -7,6 +7,7 @@ from pyure.model_builders import ModelHierarchy, MostDetailedBuilder, generate_m
 def test_modular_hierarchy_generates_a_crn():
     generated = generate_model(ModelHierarchy.PROTEIN_ONLY, "ATGCAA")
     assert generated.species_names
+    assert "protein_GFP" in generated.species_names
     assert generated.reaction_count > 0
     assert generated.sbml_xml.startswith("<?xml")
 

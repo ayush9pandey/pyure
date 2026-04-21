@@ -37,6 +37,37 @@ from pyure.validation import normalize_dna_sequence  # noqa: E402
 DEFAULT_SEQUENCE = "GGGATCCCGACTGGCGAGAGCCAGGTAACGAATGGATCCAA"
 
 
+def reaction_search_terms(raw_query: str) -> list[str]:
+    query = raw_query.strip()
+    if not query:
+        return []
+    terms = {query}
+    if "_" in query:
+        material, name = query.split("_", 1)
+        terms.add(f"{material}[{name}]")
+        terms.add(name)
+    if "[" in query and "]" in query:
+        material = query.split("[", 1)[0]
+        name = query.split("[", 1)[1].split("]", 1)[0]
+        terms.add(f"{material}_{name}")
+        terms.add(name)
+    return [term for term in terms if term]
+
+
+def find_reactions_for_species(crn: object, raw_query: str) -> list[str]:
+    terms = [term.lower() for term in reaction_search_terms(raw_query)]
+    if not terms:
+        return []
+    reactions = getattr(crn, "reactions", [])
+    matches = []
+    for reaction in reactions:
+        reaction_text = str(reaction)
+        reaction_text_lower = reaction_text.lower()
+        if any(term in reaction_text_lower for term in terms):
+            matches.append(reaction_text)
+    return matches
+
+
 st.set_page_config(
     page_title="pyure",
     page_icon="pyure",
@@ -61,6 +92,18 @@ st.markdown(
         line-height: 1.45;
         color: #25313a;
     }
+    .pyure-reaction-results {
+        max-height: 280px;
+        overflow-y: auto;
+        border: 1px solid #d7e0e2;
+        border-radius: 6px;
+        padding: 0.65rem 0.8rem;
+        background: #f8faf9;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 0.86rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+    }
     .pyure-footer {
         color: #52616b;
         font-size: 0.88rem;
@@ -68,27 +111,72 @@ st.markdown(
         padding-top: 0.8rem;
         border-top: 1px solid #d7e0e2;
     }
+    .pyure-slider-heading {
+        margin-top: 1rem;
+        margin-bottom: 0.15rem;
+    }
+    .pyure-slider-title {
+        display: block;
+        font-size: 1.28rem;
+        font-weight: 700;
+        color: #1f2933;
+        margin-bottom: 0.25rem;
+    }
+    .pyure-slider-guidance {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        color: #52616b;
+        font-size: 0.98rem;
+    }
+    .pyure-detail-arrow {
+        position: relative;
+        display: inline-block;
+        width: 150px;
+        height: 3px;
+        background: #246a73;
+        border-radius: 999px;
+    }
+    .pyure-detail-arrow::after {
+        content: "";
+        position: absolute;
+        right: -1px;
+        top: 50%;
+        width: 11px;
+        height: 11px;
+        border-top: 3px solid #246a73;
+        border-right: 3px solid #246a73;
+        transform: translateY(-50%) rotate(45deg);
+    }
     div[data-testid="stSlider"] label p {
-        font-size: 1.15rem;
+        font-size: 1.25rem;
         font-weight: 650;
     }
     div[data-testid="stSlider"] div[data-baseweb="slider"] {
-        margin-top: 0.4rem;
-        padding-top: 0.4rem;
+        margin-top: 0.3rem;
+        padding-top: 1rem;
+        padding-bottom: 0.8rem;
     }
     div[data-testid="stSlider"] div[data-baseweb="slider"] > div {
-        min-height: 18px;
+        min-height: 34px;
+    }
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div:first-child,
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div:first-child > div,
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div:first-child > div > div {
+        height: 18px !important;
+        border-radius: 999px !important;
+    }
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div:first-child {
+        box-shadow: inset 0 0 0 1px rgba(36, 106, 115, 0.18);
     }
     div[data-testid="stSlider"] [role="slider"] {
-        width: 0 !important;
-        height: 0 !important;
-        border-left: 10px solid transparent !important;
-        border-right: 10px solid transparent !important;
-        border-bottom: 18px solid #246a73 !important;
-        background: transparent !important;
-        border-radius: 0 !important;
-        transform: translateY(8px);
-        box-shadow: none !important;
+        width: 32px !important;
+        height: 32px !important;
+        border: 8px solid #ffffff !important;
+        background: #246a73 !important;
+        border-radius: 10px !important;
+        transform: translateY(1px) rotate(45deg);
+        box-shadow: 0 2px 8px rgba(31, 41, 51, 0.25) !important;
     }
     div[data-testid="stSlider"] [data-testid="stTickBar"],
     div[data-testid="stSlider"] [class*="tickBar"] {
@@ -114,11 +202,23 @@ st.markdown(
 st.caption("Generate BioCRNpyler PURE models, export SBML, and run local Bioscrape simulations.")
 
 hierarchy_labels = [label for _, label in HIERARCHY_OPTIONS]
+st.markdown(
+    """
+    <div class="pyure-slider-heading">
+      <span class="pyure-slider-title">Choose model hierarchy / level of detail</span>
+      <span class="pyure-slider-guidance">
+        <span>slide right to increase detail</span>
+      </span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 selected_label = st.select_slider(
-    "Choose model hierarchy / level of detail  -> increases model detail",
+    "Model hierarchy / level of detail",
     options=hierarchy_labels,
     value="nucleotide-level detail",
     help="Left to right increases model detail. The right-most level is the existing nucleotide-level detailed PURE model.",
+    label_visibility="collapsed",
 )
 hierarchy_index = hierarchy_labels.index(selected_label)
 selected_hierarchy = HIERARCHY_OPTIONS[hierarchy_index][0]
@@ -280,6 +380,25 @@ with right:
             else:
                 st.info("No species matched that search.")
 
+        reaction_query = st.text_input(
+            "Search reactions by species",
+            placeholder="Enter a species, for example protein_GFP, dna_target, or ATP",
+        )
+        if reaction_query:
+            reaction_matches = find_reactions_for_species(model.crn, reaction_query)
+            if reaction_matches:
+                st.caption(f"Found {len(reaction_matches)} associated reaction(s).")
+                st.markdown(
+                    "<div class='pyure-reaction-results'>"
+                    + "\n".join(reaction_matches[:150])
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+                if len(reaction_matches) > 150:
+                    st.caption(f"Showing 150 of {len(reaction_matches)} matches.")
+            else:
+                st.info("No reactions matched that species.")
+
     simulation_df = st.session_state.simulation_df
     if simulation_df is not None:
         st.divider()
@@ -324,6 +443,6 @@ with right:
             st.dataframe(simulation_df, width="stretch")
 
 st.markdown(
-    "<div class='pyure-footer'>Contact Ayush Pandey for questions. The tool is released under the BSD License.</div>",
+    "<div class='pyure-footer'>pyure is released under the BSD 3-Clause License.</div>",
     unsafe_allow_html=True,
 )

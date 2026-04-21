@@ -13,9 +13,9 @@ authors = [
   {name = "Ayush Pandey"}
 ]
 dependencies = [
-  "biocrnpyler>=1.3",
+  "BioCRNpyler @ git+https://github.com/murrayrm/BioCRNPyler.git@pure_update-01Jan2026",
   "bioscrape>=1.2",
-  "numpy>=1.23",
+  "numpy>=1.23,<2",
   "pandas>=2.0",
   "plotly>=5.0",
   "streamlit>=1.30",

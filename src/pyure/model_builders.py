@@ -191,7 +191,7 @@ class ModularBioCRNpylerBuilder:
             name="target",
             promoter="pconst",
             rbs="rbs_strong",
-            protein="Protein",
+            protein="GFP",
             length=coding_length,
         )
 
@@ -308,6 +308,7 @@ def _modular_initial_conditions(species_names: list[str]) -> dict[str, float]:
         "RNAP": 1.0,
         "RS70S": 3.0,
         "Ribo": 3.0,
+        "GFP": 0.0,
         "RNAase": 1.0,
         "ATP": 1.0,
         "NTPs": 1.0,
@@ -319,6 +320,7 @@ def _modular_initial_conditions(species_names: list[str]) -> dict[str, float]:
         "protein_RNAP": 1.0,
         "protein_RS70S": 3.0,
         "protein_Ribo": 3.0,
+        "protein_GFP": 0.0,
         "protein_RNAase": 1.0,
         "metabolite_ATP": 1.0,
         "metabolite_NTPs": 1.0,
